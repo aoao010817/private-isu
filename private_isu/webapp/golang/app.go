@@ -51,6 +51,7 @@ type Post struct {
 	Body         string    `db:"body"`
 	Mime         string    `db:"mime"`
 	CreatedAt    time.Time `db:"created_at"`
+	AccountName  string    `db:"account_name"`
 	CommentCount int
 	Comments     []Comment
 	User         User
@@ -66,14 +67,17 @@ type Comment struct {
 	User      User
 }
 
+var mc *memcache.Client
+
 func init() {
 	memdAddr := os.Getenv("ISUCONP_MEMCACHED_ADDRESS")
 	if memdAddr == "" {
-		memdAddr = "localhost:11211"
+		memdAddr = "sst-internship-cache.tubqsd.0001.apne1.cache.amazonaws.com:11211"
 	}
 	memcacheClient := memcache.New(memdAddr)
 	store = gsm.NewMemcacheStore(memcacheClient, "iscogram_", []byte("sendagaya"))
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	mc = memcache.New(memdAddr)
 }
 
 func dbInitialize() {
@@ -175,9 +179,24 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 	var posts []Post
 
 	for _, p := range results {
-		err := db.Get(&p.CommentCount, "SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?", p.ID)
-		if err != nil {
+		key := fmt.Sprintf("comments.%d.count", p.ID)
+		val, err := mc.Get(key)
+		if err != nil && err != memcache.ErrCacheMiss {
 			return nil, err
+		}
+
+		if err == memcache.ErrCacheMiss {
+			err = db.Get(&p.CommentCount, "SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?", p.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			err = mc.Set(&memcache.Item{Key: key, Value: []byte(strconv.Itoa(p.CommentCount)), Expiration: 10})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			p.CommentCount, _ = strconv.Atoi(string(val.Value))
 		}
 
 		query := "SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC"
@@ -204,10 +223,8 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 
 		p.Comments = comments
 
-		err = db.Get(&p.User, "SELECT * FROM `users` WHERE `id` = ?", p.UserID)
-		if err != nil {
-			return nil, err
-		}
+		// p.User = Post{AccountName: p.AccountName}
+		p.User = User{AccountName: p.AccountName}
 
 		p.CSRFToken = csrfToken
 
@@ -386,7 +403,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 
 	results := []Post{}
 
-	err := db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC")
+	err := db.Select(&results, "SELECT p.id, p.user_id, p.body, p.mime, p.created_at, u.account_name FROM posts AS p JOIN users AS u ON (p.user_id=u.id) WHERE u.del_flg=0 ORDER BY p.created_at DESC LIMIT ?", postsPerPage)
 	if err != nil {
 		log.Print(err)
 		return
@@ -794,7 +811,7 @@ func postAdminBanned(w http.ResponseWriter, r *http.Request) {
 func main() {
 	host := os.Getenv("ISUCONP_DB_HOST")
 	if host == "" {
-		host = "localhost"
+		host = "sst-internship-db.ch3v0aklu64f.ap-northeast-1.rds.amazonaws.com"
 	}
 	port := os.Getenv("ISUCONP_DB_PORT")
 	if port == "" {
@@ -806,7 +823,7 @@ func main() {
 	}
 	user := os.Getenv("ISUCONP_DB_USER")
 	if user == "" {
-		user = "root"
+		user = "admin"
 	}
 	password := os.Getenv("ISUCONP_DB_PASSWORD")
 	dbname := os.Getenv("ISUCONP_DB_NAME")
