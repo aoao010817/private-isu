@@ -16,6 +16,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/bradfitz/gomemcache/memcache"
 	gsm "github.com/bradleypeabody/gorilla-sessions-memcache"
 	"github.com/go-chi/chi/v5"
@@ -28,6 +31,10 @@ var (
 	db    *sqlx.DB
 	store *gsm.MemcacheStore
 )
+
+var bucket = "sst-internship-s3"
+var awsRegion = "ap-northeast-1"
+var key = "images/"
 
 const (
 	postsPerPage  = 20
@@ -630,16 +637,16 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mime := ""
+	var mime, ext string
 	if file != nil {
 		// 投稿のContent-Typeからファイルのタイプを決定する
 		contentType := header.Header["Content-Type"][0]
 		if strings.Contains(contentType, "jpeg") {
-			mime = "image/jpeg"
+			mime, ext = "image/jpeg", "jpg"
 		} else if strings.Contains(contentType, "png") {
-			mime = "image/png"
+			mime, ext = "image/png", "png"
 		} else if strings.Contains(contentType, "gif") {
-			mime = "image/gif"
+			mime, ext = "image/gif", "gif"
 		} else {
 			session := getSession(r)
 			session.Values["notice"] = "投稿できる画像形式はjpgとpngとgifだけです"
@@ -669,8 +676,8 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	result, err := db.Exec(
 		query,
 		me.ID,
+		0,
 		mime,
-		filedata,
 		r.FormValue("body"),
 	)
 	if err != nil {
@@ -683,6 +690,27 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		return
 	}
+
+	//ここから追記　S3への保存
+	newSession := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	svc := s3.New(newSession, &aws.Config{
+		Region: aws.String(awsRegion),
+	})
+
+	params := &s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key + strconv.FormatInt(pid, 10) + ext),
+		Body:   filedata,
+	}
+
+	_, err = svc.PutObject(params)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Upload to S3 is completed.")
 
 	http.Redirect(w, r, "/posts/"+strconv.FormatInt(pid, 10), http.StatusFound)
 }
