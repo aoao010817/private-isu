@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	crand "crypto/rand"
 	"fmt"
 	"html/template"
@@ -696,17 +697,18 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 
-	svc := s3.New(newSession, &aws.Config{
+	client := s3.New(newSession, &aws.Config{
 		Region: aws.String(awsRegion),
+		Withend
 	})
 
 	params := &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key + strconv.FormatInt(pid, 10) + ext),
-		Body:   filedata,
+		Body:   bytes.NewReader(filedata),
 	}
 
-	_, err = svc.PutObject(params)
+	_, err = client.PutObject(params)
 	if err != nil {
 		log.Fatal(err)
 	}
