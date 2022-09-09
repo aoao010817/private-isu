@@ -699,7 +699,6 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 
 	client := s3.New(newSession, &aws.Config{
 		Region: aws.String(awsRegion),
-		Withend
 	})
 
 	params := &s3.PutObjectInput{
