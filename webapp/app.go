@@ -710,6 +710,7 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 				} else if s3Url != ""{
 					return aws.Endpoint{
 						URL: s3Url,
+						SigningRegion: awsRegion,
 					}, nil
 				}
 				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
