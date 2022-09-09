@@ -5,13 +5,12 @@ services:
       - ./etc/nginx/conf.d:/etc/nginx/conf.d
       - ./public:/public
     ports:
-      - "80:80"
+      - "127.0.0.1:80:80/tcp"
     links:
       - app
 
   app:
-    # Go実装の場合は golang/ PHP実装の場合は php/
-    build: ruby/
+    build: .
     environment:
       ISUCONP_DB_HOST: mysql
       ISUCONP_DB_PORT: 3306
@@ -52,5 +51,17 @@ services:
   memcached:
     image: memcached:1.6
 
+  s3mock:
+    image: minio/minio:RELEASE.2022-09-07T22-25-02Z
+    ports:
+      - "127.0.0.1:9000:9000/tcp"
+      - "127.0.0.1:43007:43007/tcp"
+    volumes:
+      - s3_data:/export
+    environment:
+      - 'MINIO_ACCESS_KEY=minio'
+      - 'MINIO_SECRET_KEY=password'
+    command: "server /export --address :9000 --console-address :43007"
 volumes:
   mysql:
+  s3_data:
