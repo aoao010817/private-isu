@@ -34,7 +34,7 @@ var (
 	store *gsm.MemcacheStore
 )
 
-var s3Url = "https://sst-internship-s3.s3.ap-northeast-1.amazonaws.com"
+var s3Url = "https://s3.ap-northeast-1.amazonaws.com"
 var bucket = "sst-internship-s3"
 var awsRegion = "ap-northeast-1"
 var key = "images/"
