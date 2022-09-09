@@ -725,8 +725,8 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		o.UsePathStyle = true
 	})
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key + strconv.FormatInt(pid, 10) + "." + ext),
+		Bucket: aws.String(Key),
+		Key:    aws.String(strconv.FormatInt(pid, 10) + "." + ext),
 		Body:   bytes.NewReader(filedata),
 	})
 	if err != nil {
