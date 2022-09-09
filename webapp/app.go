@@ -699,7 +699,7 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	if len(s3mockUrl) > 0 {
 		mockFlg = true
 	}
-	//ここから追記　S3への保存
+	//S3への保存
 	cfg, err := config.LoadDefaultConfig(
 		context.TODO(),
 		// EndpointResolverでエンドポイントURLを設定
