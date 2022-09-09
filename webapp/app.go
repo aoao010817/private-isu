@@ -34,6 +34,7 @@ var (
 	store *gsm.MemcacheStore
 )
 
+var s3Url = "https://sst-internship-s3.s3.ap-northeast-1.amazonaws.com"
 var bucket = "sst-internship-s3"
 var awsRegion = "ap-northeast-1"
 var key = "images/"
@@ -705,6 +706,10 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 				if s3mockUrl != "" {
 					return aws.Endpoint{
 						URL: s3mockUrl,
+					}, nil
+				} else if s3Url != ""{
+					return aws.Endpoint{
+						URL: s3Url,
 					}, nil
 				}
 				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
