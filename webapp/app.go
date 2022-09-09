@@ -258,7 +258,7 @@ func imageURL(p Post) string {
 		ext = ".gif"
 	}
 
-	return "/image/" + strconv.Itoa(p.ID) + ext
+	return "/images/" + strconv.Itoa(p.ID) + ext
 }
 
 func isLogin(u User) bool {
@@ -720,7 +720,7 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	})
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(key + strconv.FormatInt(pid, 10) + ext),
+		Key:    aws.String(key + strconv.FormatInt(pid, 10) + "." + ext),
 		Body:   bytes.NewReader(filedata),
 	})
 	if err != nil {
@@ -752,6 +752,7 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/posts/"+strconv.FormatInt(pid, 10), http.StatusFound)
 }
 
+/*
 func getImage(w http.ResponseWriter, r *http.Request) {
 	pidStr := chi.URLParam(r, "id")
 	pid, err := strconv.Atoi(pidStr)
@@ -767,8 +768,6 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ext := chi.URLParam(r, "ext")
-
 	if ext == "jpg" && post.Mime == "image/jpeg" ||
 		ext == "png" && post.Mime == "image/png" ||
 		ext == "gif" && post.Mime == "image/gif" {
@@ -783,6 +782,7 @@ func getImage(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNotFound)
 }
+*/
 
 func postComment(w http.ResponseWriter, r *http.Request) {
 	me := getSessionUser(r)
@@ -923,7 +923,7 @@ func main() {
 	r.Get("/posts", getPosts)
 	r.Get("/posts/{id}", getPostsID)
 	r.Post("/", postIndex)
-	r.Get("/image/{id}.{ext}", getImage)
+	// r.Get("/images/{id}.{ext}", getImage)
 	r.Post("/comment", postComment)
 	r.Get("/admin/banned", getAdminBanned)
 	r.Post("/admin/banned", postAdminBanned)
