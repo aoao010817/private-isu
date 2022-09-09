@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	crand "crypto/rand"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"html/template"
 	"io"
 	"log"
@@ -17,9 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bradfitz/gomemcache/memcache"
 	gsm "github.com/bradleypeabody/gorilla-sessions-memcache"
 	"github.com/go-chi/chi/v5"
@@ -692,25 +693,60 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s3mockUrl := os.Getenv("MOCK_ENDPOINT_URL")
+	if len(s3mockUrl) > 0 {
+	}
 	//ここから追記　S3への保存
-	newSession := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	client := s3.New(newSession, &aws.Config{
-		Region: aws.String(awsRegion),
+	cfg, err := config.LoadDefaultConfig(
+		context.TODO(),
+		// EndpointResolverでエンドポイントURLを設定
+		config.WithEndpointResolverWithOptions(
+			aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+				if s3mockUrl != "" {
+					return aws.Endpoint{
+						URL: s3mockUrl,
+					}, nil
+				}
+				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+			}),
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		// UsePathStyle を設定する
+		o.UsePathStyle = true
 	})
-
-	params := &s3.PutObjectInput{
+	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key + strconv.FormatInt(pid, 10) + ext),
 		Body:   bytes.NewReader(filedata),
-	}
-
-	_, err = client.PutObject(params)
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
+	/*
+		option := session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+		}
+		newSession := session.Must(session.NewSessionWithOptions(option))
+
+		client := s3.New(newSession, &aws.Config{
+			Region: aws.String(awsRegion),
+		})
+
+		params := &s3.PutObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key + strconv.FormatInt(pid, 10) + ext),
+			Body:   bytes.NewReader(filedata),
+		}
+
+		_, err = client.PutObject(params)
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
 	log.Println("Upload to S3 is completed.")
 
 	http.Redirect(w, r, "/posts/"+strconv.FormatInt(pid, 10), http.StatusFound)

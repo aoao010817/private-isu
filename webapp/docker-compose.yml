@@ -18,6 +18,10 @@ services:
       ISUCONP_DB_PASSWORD: root
       ISUCONP_DB_NAME: isuconp
       ISUCONP_MEMCACHED_ADDRESS: memcached:11211
+      MOCK_ENDPOINT_URL: http://s3mock:9000
+      AWS_ACCESS_KEY_ID: 'minio'
+      AWS_SECRET_ACCESS_KEY: 'password'
+
     links:
       - mysql
       - memcached
