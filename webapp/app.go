@@ -720,13 +720,13 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		// UsePathStyle を設定する
-		o.UsePathStyle = true
-	})
+	// client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+	// 	// UsePathStyle を設定する
+	// 	o.UsePathStyle = true
+	// })
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(Key),
-		Key:    aws.String(strconv.FormatInt(pid, 10) + "." + ext),
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key + strconv.FormatInt(pid, 10) + "." + ext),
 		Body:   bytes.NewReader(filedata),
 	})
 	if err != nil {
