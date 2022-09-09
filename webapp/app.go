@@ -678,8 +678,8 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	result, err := db.Exec(
 		query,
 		me.ID,
-		0,
 		mime,
+		0,
 		r.FormValue("body"),
 	)
 	if err != nil {
