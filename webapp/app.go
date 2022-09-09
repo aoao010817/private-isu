@@ -34,6 +34,7 @@ var (
 	store *gsm.MemcacheStore
 )
 
+var s3Url = "https://s3.ap-northeast-1.amazonaws.com"
 var bucket = "sst-internship-s3"
 var awsRegion = "ap-northeast-1"
 var key = "images/"
@@ -706,6 +707,11 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 					return aws.Endpoint{
 						URL: s3mockUrl,
 					}, nil
+				} else if s3Url != ""{
+					return aws.Endpoint{
+						URL: s3Url,
+						SigningRegion: awsRegion,
+					}, nil
 				}
 				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 			}),
@@ -716,7 +722,7 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		// UsePathStyle を設定する
-		o.UsePathStyle = true
+		// o.UsePathStyle = true
 	})
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
