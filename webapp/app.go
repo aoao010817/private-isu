@@ -695,9 +695,11 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s3mockUrl := os.Getenv("MOCK_ENDPOINT_URL")
+	mockFlg := false
 	if len(s3mockUrl) > 0 {
+		mockFlg = true
 	}
-	//ここから追記　S3への保存
+	//S3への保存
 	cfg, err := config.LoadDefaultConfig(
 		context.TODO(),
 		// EndpointResolverでエンドポイントURLを設定
@@ -707,9 +709,9 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 					return aws.Endpoint{
 						URL: s3mockUrl,
 					}, nil
-				} else if s3Url != ""{
+				} else if s3Url != "" {
 					return aws.Endpoint{
-						URL: s3Url,
+						URL:           s3Url,
 						SigningRegion: awsRegion,
 					}, nil
 				}
@@ -722,7 +724,9 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		// UsePathStyle を設定する
-		// o.UsePathStyle = true
+		if mockFlg == true {
+			o.UsePathStyle = true
+		}
 	})
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
