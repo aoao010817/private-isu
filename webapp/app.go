@@ -27,6 +27,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
+	"github.com/google/uuid"
 )
 
 var (
@@ -58,6 +59,7 @@ type Post struct {
 	ID           int       `db:"id"`
 	UserID       int       `db:"user_id"`
 	Imgdata      []byte    `db:"imgdata"`
+	S3Filename	string	`db:"s3_filename"`
 	Body         string    `db:"body"`
 	Mime         string    `db:"mime"`
 	CreatedAt    time.Time `db:"created_at"`
@@ -250,16 +252,13 @@ func makePosts(results []Post, csrfToken string, allComments bool) ([]Post, erro
 }
 
 func imageURL(p Post) string {
-	ext := ""
-	if p.Mime == "image/jpeg" {
-		ext = ".jpg"
-	} else if p.Mime == "image/png" {
-		ext = ".png"
-	} else if p.Mime == "image/gif" {
-		ext = ".gif"
+	post := Post{}
+	err := db.Get(&post, "SELECT `s3_filename` FROM `posts` WHERE `id` = ?", p.ID)
+	if err != nil {
+		log.Print(err)
 	}
 
-	return "/images/" + strconv.Itoa(p.ID) + ext
+	return "/images/" + post.S3Filename
 }
 
 func isLogin(u User) bool {
@@ -675,25 +674,6 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := "INSERT INTO `posts` (`user_id`, `mime`, `imgdata`, `body`) VALUES (?,?,?,?)"
-	result, err := db.Exec(
-		query,
-		me.ID,
-		mime,
-		0,
-		r.FormValue("body"),
-	)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	pid, err := result.LastInsertId()
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
 	s3mockUrl := os.Getenv("MOCK_ENDPOINT_URL")
 	mockFlg := false
 	if len(s3mockUrl) > 0 {
@@ -728,37 +708,44 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 			o.UsePathStyle = true
 		}
 	})
+
+	u, err := uuid.NewRandom()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	uuid := u.String()
+
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(key + strconv.FormatInt(pid, 10) + "." + ext),
+		Key:    aws.String(key + uuid + "." + ext),
 		Body:   bytes.NewReader(filedata),
-		contentType: aws.String(mime),
+		ContentType: aws.String(mime),
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	/*
-		option := session.Options{
-			SharedConfigState: session.SharedConfigEnable,
-		}
-		newSession := session.Must(session.NewSessionWithOptions(option))
-
-		client := s3.New(newSession, &aws.Config{
-			Region: aws.String(awsRegion),
-		})
-
-		params := &s3.PutObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key + strconv.FormatInt(pid, 10) + ext),
-			Body:   bytes.NewReader(filedata),
-		}
-
-		_, err = client.PutObject(params)
-		if err != nil {
-			log.Fatal(err)
-		}
-	*/
 	log.Println("Upload to S3 is completed.")
+
+	query := "INSERT INTO `posts` (`user_id`, `mime`, `imgdata`, `s3_filename`, `body`) VALUES (?,?,?,?,?)"
+	result, err := db.Exec(
+		query,
+		me.ID,
+		mime,
+		0,
+		uuid + "." + ext,
+		r.FormValue("body"),
+	)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	pid, err := result.LastInsertId()
+	if err != nil {
+		log.Print(err)
+		return
+	}
 
 	http.Redirect(w, r, "/posts/"+strconv.FormatInt(pid, 10), http.StatusFound)
 }
