@@ -728,6 +728,7 @@ func postIndex(w http.ResponseWriter, r *http.Request) {
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key + strconv.FormatInt(pid, 10) + "." + ext),
 		Body:   bytes.NewReader(filedata),
+		contentType: aws.String(mime),
 	})
 	if err != nil {
 		log.Fatal(err)
